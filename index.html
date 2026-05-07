@@ -64,6 +64,11 @@ canvas{position:fixed;inset:0;width:100vw;height:100dvh;display:block}
 <div id="dmgOv"></div>
 <div id="wpnBar"></div>
 <div id="buffBar"></div>
+<!-- Touch joystick visuals -->
+<div id="joyL" style="display:none;position:fixed;border-radius:50%;background:rgba(255,255,255,.12);border:2px solid rgba(255,255,255,.3);pointer-events:none;z-index:8;box-sizing:border-box"></div>
+<div id="joyLthumb" style="display:none;position:fixed;border-radius:50%;background:rgba(255,255,255,.5);pointer-events:none;z-index:9;transform:translate(-50%,-50%)"></div>
+<div id="joyR" style="display:none;position:fixed;border-radius:50%;background:rgba(255,214,0,.10);border:2px solid rgba(255,214,0,.3);pointer-events:none;z-index:8;box-sizing:border-box"></div>
+<div id="joyRthumb" style="display:none;position:fixed;border-radius:50%;background:rgba(255,214,0,.5);pointer-events:none;z-index:9;transform:translate(-50%,-50%)"></div>
 <div id="saveToast" style="position:fixed;bottom:calc(70px+env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);z-index:200;background:rgba(76,175,80,.9);color:#fff;padding:4px 12px;border-radius:12px;font-size:11px;font-weight:bold;opacity:0;transition:opacity .3s;pointer-events:none">💾 Progreso guardado</div>
 
 <div id="menuScr" class="scr mn">
@@ -1184,7 +1189,7 @@ function mkChar3(primary,secondary,accent,skinColor,radius,charType){
   }
   // ---- WEAPON MOUNT ----
   var wpnMount=new THREE.Group();
-  wpnMount.position.set(TW/2+5*sc,TORSO_Y-TORSO_H*0.55,3*sc);
+  wpnMount.position.set(TW/2+14*sc,TORSO_Y-TORSO_H*0.4,8*sc);
   g.add(wpnMount);
   // ---- STORE REFERENCES ----
   g._body=torso;g._head=head;g._wpnMount=wpnMount;
@@ -1262,7 +1267,7 @@ function mkWpn3D(wpType,colorStr){
     var tip=new THREE.Mesh(new THREE.CylinderGeometry(2,1,5,6),glow);tip.rotation.x=Math.PI/2;tip.position.set(0,0,26);g.add(tip);
   }
 
-  g.scale.setScalar(sc===1.6?1.6:1.4);
+  g.scale.setScalar(sc===1.6?1.0:0.85);
   g.rotation.y=Math.PI/2;
   return g;
 }
@@ -1735,9 +1740,19 @@ function spEn(team){var si=Math.floor(Math.random()*ESP.length),sp=ESP[si],hp=65
 function spBo(){boss={x:WW/2,y:200,rd:50,sp:1.3+st.level*.04,hp:400+st.level*80,mhp:400+st.level*80,dm:22+st.level*5,mA:0,aA:Math.PI/2,rlT:0,rlM:35,alive:true,team:'enemy',ar:'#B71C1C',al:'#EF5350',pt:'#880E4F',sk:'#B0BEC5',hr:'#FF1744',hs:'mohawk',hF:0,sF:60,wc:0,pCd:0,mov:false,miT:100};bW=120;sBs()}
 
 function upPl(pl,sm,sa){if(!pl.alive)return;var mx=0,my=0;pl.mov=false;
-  if(sm.a){var dx=sm.cx-sm.bx,dy=sm.cy-sm.by,ln=Math.hypot(dx,dy);if(ln>6){var m=Math.min(1,ln/sm.mr);mx=(dx/ln)*pl.sp*(pl.rSp||1)*m;my=(dy/ln)*pl.sp*(pl.rSp||1)*m}}
+  if(sm.a){var dx=sm.cx-sm.bx,dy=sm.cy-sm.by,ln=Math.hypot(dx,dy);if(ln>6){var m=Math.min(1,ln/sm.mr);
+    // Compensate for 3D camera angle so stick direction matches world movement
+    var camAngle=Math.atan2(T3.camera?T3.camera.position.x-(WW/2):0,T3.camera?T3.camera.position.z-pl.y:0);
+    var sdx=dx/ln,sdy=dy/ln;
+    mx=(sdx*Math.cos(camAngle)-sdy*Math.sin(camAngle))*pl.sp*(pl.rSp||1)*m;
+    my=(sdx*Math.sin(camAngle)+sdy*Math.cos(camAngle))*pl.sp*(pl.rSp||1)*m}}
   if(mx||my){mvE(pl,mx,my);pl.mov=true;pl.mA=Math.atan2(my,mx);pl.wc+=.15;if(gT%4===0)dust(pl.x,pl.y)}
-  if(sa.a){var dx2=sa.cx-sa.bx,dy2=sa.cy-sa.by;if(Math.hypot(dx2,dy2)>3)pl.aA=Math.atan2(dy2,dx2)}
+  if(sa.a){var dx2=sa.cx-sa.bx,dy2=sa.cy-sa.by;if(Math.hypot(dx2,dy2)>3){
+    // Compensate aim joystick for camera orientation
+    var camA2=Math.atan2(T3.camera?T3.camera.position.x-(WW/2):0,T3.camera?T3.camera.position.z-pl.y:0);
+    var sdx2=dx2/Math.hypot(dx2,dy2),sdy2=dy2/Math.hypot(dx2,dy2);
+    pl.aA=Math.atan2(sdx2*Math.sin(camA2)+sdy2*Math.cos(camA2),sdx2*Math.cos(camA2)-sdy2*Math.sin(camA2));
+  }}
   if(pl.rlT>0)pl.rlT--;if(pl.hF>0)pl.hF--;if(pl.inv>0)pl.inv--;if(pl.muzT>0)pl.muzT--;if(pl.pCd>0)pl.pCd--;
   ckP(pl);
   for(var i=0;i<trp.length;i++){var t=trp[i];if(t.cd>0)continue;if(Math.hypot(pl.x-t.x,pl.y-t.y)<pl.rd+t.rd){var realDm=t.dm*(1-pl.dr);if(pl.rSh)realDm*=.2;pl.hp-=realDm;pl.hF=8;sTr();t.cd=60;aDN(pl.x,pl.y-20,realDm,'#FF6E40');dOv();if(pl.hp<=0)klPl(pl)}}
@@ -2641,7 +2656,29 @@ function _updateMouseAim(){
   if(_rc3.ray.intersectPlane(_gp3,_rt3))P.aA=Math.atan2(_rt3.z-P.y,_rt3.x-P.x);
 }
 document.addEventListener('mousedown',function(e){if(run&&e.target===T3.renderer.domElement)shFor(P,P.aA,st.weapon)});
-function kbM(){if(!run)return;
+// Joystick visual update
+var _jL=null,_jLt=null,_jR=null,_jRt=null;
+function updateJoyVisuals(){
+  if(!_jL){_jL=document.getElementById('joyL');_jLt=document.getElementById('joyLthumb');_jR=document.getElementById('joyR');_jRt=document.getElementById('joyRthumb');}
+  var sz=90,th=36;
+  if(ms1.a){
+    _jL.style.display='block';_jL.style.width=sz+'px';_jL.style.height=sz+'px';
+    _jL.style.left=(ms1.bx-sz/2)+'px';_jL.style.top=(ms1.by-sz/2)+'px';
+    _jLt.style.display='block';_jLt.style.width=th+'px';_jLt.style.height=th+'px';
+    var dx=ms1.cx-ms1.bx,dy=ms1.cy-ms1.by,ln=Math.min(Math.hypot(dx,dy),sz/2-4);
+    var ang=Math.atan2(dy,dx);
+    _jLt.style.left=(ms1.bx+Math.cos(ang)*ln)+'px';_jLt.style.top=(ms1.by+Math.sin(ang)*ln)+'px';
+  } else {_jL.style.display='none';_jLt.style.display='none';}
+  if(as1.a){
+    _jR.style.display='block';_jR.style.width=sz+'px';_jR.style.height=sz+'px';
+    _jR.style.left=(as1.bx-sz/2)+'px';_jR.style.top=(as1.by-sz/2)+'px';
+    _jRt.style.display='block';_jRt.style.width=th+'px';_jRt.style.height=th+'px';
+    var dx=as1.cx-as1.bx,dy=as1.cy-as1.by,ln2=Math.min(Math.hypot(dx,dy),sz/2-4);
+    var ang2=Math.atan2(dy,dx);
+    _jRt.style.left=(as1.bx+Math.cos(ang2)*ln2)+'px';_jRt.style.top=(as1.by+Math.sin(ang2)*ln2)+'px';
+  } else {_jR.style.display='none';_jRt.style.display='none';}
+}
+function kbM(){if(!run)return;updateJoyVisuals();
   if(!ms1.a&&P.alive){var dx=0,dy=0;if(ks.w)dy-=1;if(ks.s)dy+=1;if(ks.a)dx-=1;if(ks.d)dx+=1;if(dx||dy){var l=Math.hypot(dx,dy);mvE(P,(dx/l)*P.sp*(P.rSp||1),(dy/l)*P.sp*(P.rSp||1));P.wc+=.15;P.mA=Math.atan2(dy,dx);P.mov=true;if(gT%4===0)dust(P.x,P.y)}else P.mov=false}
   if(st.mode==='pvp'&&!ms2.a&&P2.alive){var dx=0,dy=0;if(ks.up)dy-=1;if(ks.dn)dy+=1;if(ks.le)dx-=1;if(ks.ri)dx+=1;if(dx||dy){var l=Math.hypot(dx,dy);mvE(P2,(dx/l)*P2.sp,(dy/l)*P2.sp);P2.wc+=.15;P2.mA=Math.atan2(dy,dx);P2.mov=true;if(gT%4===0)dust(P2.x,P2.y)}else P2.mov=false}}
 document.getElementById('superBtn').addEventListener('touchstart',function(e){e.preventDefault();e.stopPropagation();if(P.sup>=P.supM)shFor(P,P.aA,st.weapon,true)},{passive:false});
